@@ -25,59 +25,85 @@
 %=========================================================================================
 \BiSection{代码}{Codes} 
 
-源代码使用 listings 宏包，LMS~算法的~Verilog~模块端口声明如代码~\ref{code_appB_lms}~所示。
-
 {\fontsize{10pt}{0.5\baselineskip}\selectfont
-	\begin{lstlisting}[caption={空时~LMS~算法~Verilog~模块端口声明},label={code_appB_lms}]
-int main()
-{
+	\begin{lstlisting}[caption={实验代码},label={code_appB_lms},language=Python]
+from sklearn.svm import SVC
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 
-	std::string root_path = "E:\\Code\\heils_mobileface\\heils_mobileface\\heils_mobileface\\images\\lack";
-	std::string suffix = ".jpg";
-	
-	std::vector<std::string> fns;
-	glob(fns, root_path, suffix);
-	//cout << pattern << endl;
-	std::vector<cv::Mat> images;
+# 导入肺癌数据集
+data = load_breast_cancer()
+X = data['data']
+y = data['target']
+print(X.shape)
+    
+x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
 
-	size_t face_num = 0;
-	MtcnnDface facedetector = MtcnnDface();
+# 建立支持向量机模型
+clf1 = SVC(kernel='linear')    #线性核函数
+clf2 = SVC(kernel='rbf', C=10, gamma=0.0001) #采用高斯核函数
+clf1.fit(x_train, y_train)
+clf2.fit(x_train, y_train)
+from sklearn.metrics import accuracy_score
 
-	facedetector.initModel();
-	for (int i = 0; i < fns.size(); i++) {
-		cv::Mat cv_mat = cv::imread(fns[i]);
-		ncnn::Mat ncnn_mat = ncnn::Mat::from_pixels(cv_mat.data, ncnn::Mat::PIXEL_BGR2RGB, cv_mat.cols, cv_mat.rows);
+# 对线性核函数模型进行预测并计算准确率
+y_pred_linear = clf1.predict(x_test)
+accuracy_linear = accuracy_score(y_test, y_pred_linear)
+print("Accuracy of linear kernel: {:.2f}%".format(accuracy_linear * 100))
 
-		std::vector<Bbox> finboxes;
-		ptimer pt;
-		//double start = static_cast<double>(cv::getTickCount());
-		facedetector.detect(ncnn_mat, finboxes);
-		//Sleep(1000);
-		double inference = cv::getTickCount();
-		std::cout << "boost timer：" << pt.elapsed() << "秒" << std::endl;
-		//std::cout << "opencv timer：" << (inference - start) / cv::getTickFrequency() << "秒" << std::endl;
-		
+# 对高斯核函数模型进行预测并计算准确率
+y_pred_rbf = clf2.predict(x_test)
+accuracy_rbf = accuracy_score(y_test, y_pred_rbf)
+print("Accuracy of RBF kernel: {:.2f}%".format(accuracy_rbf * 100))
 
-		if (finboxes.size() != 0)
-			face_num++;
-		for (auto &box : finboxes)
-		{
-			cv::rectangle(cv_mat, cv::Rect(box.x1, box.y1, box.x2 - box.x1 + 1, box.y2 - box.y1 + 1), cv::Scalar(0, 255, 255), 2);
-			for (int j = 0; j < 5; ++j)
-			{
-				cv::circle(cv_mat, cvPoint(box.ppoint[j], box.ppoint[j + 5]), 2, CV_RGB(0, 255, 0), CV_FILLED);
-			}
-		}
-		cv::imshow("show", cv_mat);
-		cv::waitKey(0);
-	}
-	std::cout<<"image count" << fns.size() <<"face num:"<< face_num << std::endl;
-	
-  	facedetector.releaseModel();
-	
-	return 0;
-}
+# 导入numpy模块
+import numpy as np
 
+# 定义一个函数，用于绘制支持向量机的决策边界
+def plot_svm_decision_boundary(clf, X, y, title):
+  # 获取数据集的最小值和最大值
+  x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
+  y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
+  # 生成网格点
+  xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02),
+                       np.arange(y_min, y_max, 0.02))
+  # 预测网格点的类别
+  Z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
+  # 将预测结果reshape为网格的形状
+  Z = Z.reshape(xx.shape)
+  # 定义颜色映射
+  cmap_light = ListedColormap(['#FFAAAA', '#AAFFAA'])
+  cmap_bold = ListedColormap(['#FF0000', '#00FF00'])
+  # 绘制背景颜色
+  plt.pcolormesh(xx, yy, Z, cmap=cmap_light)
+  # 绘制数据点
+  plt.scatter(X[:, 0], X[:, 1], c=y, cmap=cmap_bold)
+  # 绘制支持向量
+  plt.scatter(clf.support_vectors_[:,0], clf.support_vectors_[:,1], s=100,
+              facecolors='none', edgecolors='k')
+  # 设置标题和坐标轴标签
+  plt.title(title)
+  plt.xlabel('Feature 1')
+  plt.ylabel('Feature 2')
+  
+# 只选择数据集中的前两个特征，方便可视化
+X2 = X[:, :2]
+
+# 建立两种支持向量机模型，使用前两个特征
+clf3 = SVC(kernel='linear')
+clf4 = SVC(kernel='rbf', C=10, gamma=0.0001)
+clf3.fit(X2, y)
+clf4.fit(X2, y)
+
+# 绘制两种支持向量机模型的决策边界
+plt.figure(figsize=(12,6))
+plt.subplot(121)
+plot_svm_decision_boundary(clf3, X2, y, 'Linear SVM')
+plt.subplot(122)
+plot_svm_decision_boundary(clf4, X2, y, 'RBF SVM')
+plt.show()
 	\end{lstlisting}
 }
 
